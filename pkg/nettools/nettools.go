@@ -314,12 +314,12 @@ func SetupContainerSideNetwork(info *types.Result) (*types.Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if info == nil {
-		info, err = ExtractLinkInfo(contVeth)
-		if err != nil {
-			return nil, err
-		}
+	// if info == nil {
+	info, err = ExtractLinkInfo(contVeth)
+	if err != nil {
+		return nil, err
 	}
+	// }
 	if err := StripLink(contVeth); err != nil {
 		return nil, err
 	}
