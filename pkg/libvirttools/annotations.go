@@ -37,6 +37,7 @@ const (
 	CloudInitUserDataScriptKeyName               = "VirtletCloudInitUserDataScript"
 	SSHKeysKeyName                               = "VirtletSSHKeys"
 	DiskDriverKeyName                            = "VirtletDiskDriver"
+	AddSRIOVDeviceKeyName                        = "VirtletAddSRIOVDevice"
 	DiskDriverVirtio                  DiskDriver = "virtio"
 	DiskDriverScsi                    DiskDriver = "scsi"
 )
@@ -49,6 +50,7 @@ type VirtletAnnotations struct {
 	UserDataScript    string
 	SSHKeys           []string
 	DiskDriver        DiskDriver
+	AddSRIOVDevice    bool
 }
 
 func LoadAnnotations(podAnnotations map[string]string) (*VirtletAnnotations, error) {
@@ -87,6 +89,10 @@ func (va *VirtletAnnotations) parsePodAnnotations(podAnnotations map[string]stri
 
 	if podAnnotations[CloudInitUserDataOverwriteKeyName] == "true" {
 		va.UserDataOverwrite = true
+	}
+
+	if podAnnotations[AddSRIOVDeviceKeyName] == "true" {
+		va.AddSRIOVDevice = true
 	}
 
 	va.UserDataScript = podAnnotations[CloudInitUserDataScriptKeyName]

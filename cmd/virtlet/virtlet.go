@@ -54,6 +54,8 @@ var (
 		"Path to fd server socket")
 	imageTranslationConfigsDir = flag.String("image-translations-dir", "",
 		"Image name translation configs directory")
+	sriovMasterDevices = flag.String("sriov", "",
+		"Comma separated list of network adapters which should be used as master devices for SR-IOV VFs")
 )
 
 const (
@@ -76,7 +78,13 @@ func runVirtlet() {
 		glog.Errorf("Failed to connect to tapmanager: %v", err)
 		os.Exit(1)
 	}
-	server, err := manager.NewVirtletManager(*libvirtUri, *pool, *imageDownloadProtocol, *storageBackend, *boltPath, *rawDevices, *imageTranslationConfigsDir, c)
+
+	glog.Infof("SR-IOV master devices: %q", *sriovMasterDevices)
+	server, err := manager.NewVirtletManager(
+		*libvirtUri, *pool, *imageDownloadProtocol, *storageBackend,
+		*boltPath, *cniPluginsDir, *cniConfigsDir, *rawDevices,
+		*imageTranslationConfigsDir, sriovMasterDevices, c,
+	)
 	if err != nil {
 		glog.Errorf("Initializing server failed: %v", err)
 		os.Exit(1)

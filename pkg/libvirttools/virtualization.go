@@ -31,6 +31,7 @@ import (
 	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"
 
 	"github.com/Mirantis/virtlet/pkg/metadata"
+	"github.com/Mirantis/virtlet/pkg/sriov"
 	"github.com/Mirantis/virtlet/pkg/utils"
 	"github.com/Mirantis/virtlet/pkg/virt"
 )
@@ -167,25 +168,35 @@ func canUseKvm() bool {
 }
 
 type VirtualizationTool struct {
-	domainConn     virt.VirtDomainConnection
-	volumePool     virt.VirtStoragePool
-	imageManager   ImageManager
-	metadataStore  metadata.MetadataStore
-	clock          clockwork.Clock
-	forceKVM       bool
-	kubeletRootDir string
-	rawDevices     []string
-	volumeSource   VMVolumeSource
+	domainConn         virt.VirtDomainConnection
+	volumePool         virt.VirtStoragePool
+	imageManager       ImageManager
+	metadataStore      metadata.MetadataStore
+	clock              clockwork.Clock
+	forceKVM           bool
+	kubeletRootDir     string
+	rawDevices         []string
+	sriovMasterDevices []string
+	volumeSource       VMVolumeSource
 }
 
 var _ VolumeOwner = &VirtualizationTool{}
 
-func NewVirtualizationTool(domainConn virt.VirtDomainConnection, storageConn virt.VirtStorageConnection, imageManager ImageManager,
-	metadataStore metadata.MetadataStore, volumePoolName, rawDevices string, volumeSource VMVolumeSource) (*VirtualizationTool, error) {
+func NewVirtualizationTool(domainConn virt.VirtDomainConnection, storageConn virt.VirtStorageConnection,
+	imageManager ImageManager, metadataStore metadata.MetadataStore, volumePoolName,
+	rawDevices, sriovMasterDevices string, volumeSource VMVolumeSource) (*VirtualizationTool, error) {
 
 	volumePool, err := ensureStoragePool(storageConn, volumePoolName)
 	if err != nil {
 		return nil, err
+	}
+	glog.Infof("Starting virtualization tool with %q as sriov master devices", sriovMasterDevices)
+	var sriovMasterDevicesSlice []string
+	if sriovMasterDevices != "" {
+		sriovMasterDevicesSlice = strings.Split(sriovMasterDevices, ",")
+		if err := sriov.VerifyMasterDevices(sriovMasterDevicesSlice); err != nil {
+			return nil, err
+		}
 	}
 	return &VirtualizationTool{
 		domainConn:    domainConn,
@@ -197,9 +208,10 @@ func NewVirtualizationTool(domainConn virt.VirtDomainConnection, storageConn vir
 		// Need to remove it from daemonset mounts (both dev and non-dev)
 		// Use 'nsenter -t 1 -m -- tar ...' or something to grab the path
 		// from root namespace
-		kubeletRootDir: defaultKubeletRootDir,
-		rawDevices:     strings.Split(rawDevices, ","),
-		volumeSource:   volumeSource,
+		kubeletRootDir:     defaultKubeletRootDir,
+		rawDevices:         strings.Split(rawDevices, ","),
+		sriovMasterDevices: sriovMasterDevicesSlice,
+		volumeSource:       volumeSource,
 	}, nil
 }
 
@@ -401,6 +413,15 @@ func (v *VirtualizationTool) CreateContainer(config *VMConfig, netFdKey string) 
 	labels[kubetypes.KubernetesPodUIDLabel] = config.PodSandboxId
 	labels[kubetypes.KubernetesContainerNameLabel] = config.Name
 
+	var sriovDevice string
+	if config.ParsedAnnotations.AddSRIOVDevice {
+		var err error
+		if sriovDevice, err = sriov.AllocateDeviceOn(v.sriovMasterDevices); err != nil {
+			return "", err
+		}
+		sriov.AddDeviceToDomainConf(sriovDevice, domainConf)
+	}
+
 	if _, err := v.domainConn.DefineDomain(domainConf); err != nil {
 		return "", err
 	}
@@ -426,6 +447,7 @@ func (v *VirtualizationTool) CreateContainer(config *VMConfig, netFdKey string) 
 					Annotations:         config.ContainerAnnotations,
 					Attempt:             config.Attempt,
 					State:               kubeapi.ContainerState_CONTAINER_CREATED,
+					SRIOVDevice:         sriovDevice,
 				}, nil
 			})
 	}
@@ -556,6 +578,16 @@ func (v *VirtualizationTool) StopContainer(containerId string, timeout time.Dura
 				c.State = kubeapi.ContainerState_CONTAINER_EXITED
 				return c, nil
 			})
+	}
+
+	// TODO: refactor error handling. Even if there was an error
+	// during metadata update - we should do volumes teardown,
+	// as the same with sriov device dealocation
+	if err == nil {
+		containerInfo, err := v.metadataStore.Container(containerId).Retrieve()
+		if err == nil {
+			err = sriov.DeallocateDevice(containerInfo.SRIOVDevice)
+		}
 	}
 
 	if err == nil {

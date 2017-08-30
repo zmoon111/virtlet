@@ -104,6 +104,7 @@ type ContainerInfo struct {
 	Annotations         map[string]string
 	Attempt             uint32
 	State               kubeapi.ContainerState
+	SRIOVDevice         string
 }
 
 // ContainerMetadata contains methods of a single container (VM)

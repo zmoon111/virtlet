@@ -59,7 +59,7 @@ type VirtletManager struct {
 	imageTranslationConfigsDir string
 }
 
-func NewVirtletManager(libvirtUri, poolName, downloadProtocol, storageBackend, metadataPath, rawDevices, imageTranslationConfigsDir string, fdManager tapmanager.FDManager) (*VirtletManager, error) {
+func NewVirtletManager(libvirtUri, poolName, downloadProtocol, storageBackend, metadataPath, rawDevices, imageTranslationConfigsDir, sriovMasterDevices string, fdManager tapmanager.FDManager) (*VirtletManager, error) {
 	err := imagetranslation.RegisterCustomResourceType()
 	if err != nil {
 		return nil, err
@@ -93,7 +93,11 @@ func NewVirtletManager(libvirtUri, poolName, downloadProtocol, storageBackend, m
 		// doesn't produce correct name for cdrom devices
 		libvirttools.GetNocloudVolume)
 	// TODO: pool name should be passed like for imageTool
-	libvirtVirtualizationTool, err := libvirttools.NewVirtualizationTool(conn, conn, libvirtImageTool, metadataStore, "volumes", rawDevices, volSrc)
+	glog.Infof("Creating virtualization tool with %q as sriov master devices", sriovMasterDevices)
+	libvirtVirtualizationTool, err := libvirttools.NewVirtualizationTool(
+		conn, conn, libvirtImageTool, metadataStore, "volumes",
+		rawDevices, sriovMasterDevices, volSrc,
+	)
 	if err != nil {
 		return nil, err
 	}

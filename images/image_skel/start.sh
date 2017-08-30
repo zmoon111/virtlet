@@ -29,4 +29,4 @@ while [ ! -S /var/run/libvirt/libvirt-sock ] ; do
   sleep 0.3
 done
 
-/usr/local/bin/virtlet -v=${VIRTLET_LOGLEVEL:-3} -logtostderr=true -image-download-protocol="${PROTOCOL}" -image-translations-dir="${IMAGE_TRANSLATIONS_DIR}" "${RAW_DEVICES}"
+/usr/local/bin/virtlet -v=${VIRTLET_LOGLEVEL:-3} -sriov=eno2 -logtostderr=true -image-download-protocol="${PROTOCOL}" -image-translations-dir="${IMAGE_TRANSLATIONS_DIR}" "${RAW_DEVICES}"
