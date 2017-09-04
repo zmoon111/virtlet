@@ -131,13 +131,13 @@ func DeallocateDevice(devName string) error {
 // AddDeviceToDomainConf adds to domain definition hostdev type interface
 // pointed by address passed as first argument
 func AddDeviceToDomainConf(devAddress string, domainConf *libvirtxml.Domain) {
+	address := newPCISourceAddress(devAddress)
 	domainConf.Devices.Interfaces = append(
 		domainConf.Devices.Interfaces,
 		libvirtxml.DomainInterface{
 			Type: "hostdev",
 			Source: &libvirtxml.DomainInterfaceSource{
-				Type:    "pci",
-				Address: devAddress,
+				Address: address.asDomainInterfaceSourceAddress(),
 			},
 		},
 	)
@@ -161,4 +161,38 @@ func getAllVFs(devNames []string) ([]string, error) {
 		}
 	}
 	return devices, nil
+}
+
+type sourceAddress struct {
+	type_    string
+	domain   string
+	bus      string
+	slot     string
+	function string
+}
+
+func newPCISourceAddress(devAddress string) *sourceAddress {
+	return newSourceAddress("pci", devAddress)
+}
+
+func newSourceAddress(type_, devAddress string) *sourceAddress {
+	dottedParts := strings.SplitN(devAddress, ".", 2)
+	parts := strings.SplitN(dottedParts[0], ":", 3)
+	return &sourceAddress{
+		type_:    type_,
+		domain:   "0x" + parts[0],
+		bus:      "0x" + parts[1],
+		slot:     "0x" + parts[2],
+		function: "0x" + dottedParts[1],
+	}
+}
+
+func (s *sourceAddress) asDomainInterfaceSourceAddress() *libvirtxml.DomainInterfaceSourceAddress {
+	return &libvirtxml.DomainInterfaceSourceAddress{
+		Type:     s.type_,
+		Domain:   s.domain,
+		Bus:      s.bus,
+		Slot:     s.slot,
+		Function: s.function,
+	}
 }

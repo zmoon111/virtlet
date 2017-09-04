@@ -1,11 +1,47 @@
 diff --git a/domain.go b/domain.go
-index a5d3203..d15af6b 100644
+index a5d3203..0350243 100644
 --- a/domain.go
 +++ b/domain.go
-@@ -597,6 +597,32 @@ type DomainFeatureList struct {
+@@ -176,17 +176,25 @@ type DomainInterfaceModel struct {
+ 	Type string `xml:"type,attr"`
+ }
+ 
++type DomainInterfaceSourceAddress struct {
++	Type     string `xml:"type,attr"`
++	Domain   string `xml:"domain,attr"`
++	Bus      string `xml:"bus,attr"`
++	Slot     string `xml:"slot,attr"`
++	Function string `xml:"function,attr"`
++}
++
+ type DomainInterfaceSource struct {
+-	Bridge  string `xml:"bridge,attr,omitempty"`
+-	Dev     string `xml:"dev,attr,omitempty"`
+-	Network string `xml:"network,attr,omitempty"`
+-	Address string `xml:"address,attr,omitempty"`
+-	Type    string `xml:"type,attr,omitempty"`
+-	Path    string `xml:"path,attr,omitempty"`
+-	Mode    string `xml:"mode,attr,omitempty"`
+-	Port    uint   `xml:"port,attr,omitempty"`
+-	Service string `xml:"service,attr,omitempty"`
+-	Host    string `xml:"host,attr,omitempty"`
++	Bridge  string                        `xml:"bridge,attr,omitempty"`
++	Dev     string                        `xml:"dev,attr,omitempty"`
++	Network string                        `xml:"network,attr,omitempty"`
++	Address *DomainInterfaceSourceAddress `xml:"address"`
++	Type    string                        `xml:"type,attr,omitempty"`
++	Path    string                        `xml:"path,attr,omitempty"`
++	Mode    string                        `xml:"mode,attr,omitempty"`
++	Port    uint                          `xml:"port,attr,omitempty"`
++	Service string                        `xml:"service,attr,omitempty"`
++	Host    string                        `xml:"host,attr,omitempty"`
+ }
+ 
+ type DomainInterfaceTarget struct {
+@@ -597,6 +605,32 @@ type DomainFeatureList struct {
  	SMM        *DomainFeatureState  `xml:"smm"`
  }
-
+ 
 +type DomainCPUTuneShares struct {
 +	Value uint `xml:",chardata"`
 +}
@@ -35,7 +71,7 @@ index a5d3203..d15af6b 100644
  type DomainQEMUCommandlineArg struct {
  	Value string `xml:"value,attr"`
  }
-@@ -616,24 +642,26 @@ type DomainQEMUCommandline struct {
+@@ -616,24 +650,26 @@ type DomainQEMUCommandline struct {
  // matching the order of XML elements that libvirt
  // will generate when dumping XML.
  type Domain struct {
@@ -79,3 +115,4 @@ index a5d3203..d15af6b 100644
 +	Devices         *DomainDeviceList    `xml:"devices"`
  	QEMUCommandline *DomainQEMUCommandline
  }
+ 
