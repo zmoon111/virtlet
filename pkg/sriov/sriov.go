@@ -139,6 +139,10 @@ func AddDeviceToDomainConf(devAddress string, domainConf *libvirtxml.Domain) {
 			Source: &libvirtxml.DomainInterfaceSource{
 				Address: address.asDomainInterfaceSourceAddress(),
 			},
+			// try to use legacy driver as default vfio fails on test lab
+			Driver: &libvirtxml.DomainInterfaceDriver{
+				Name: "kvm",
+			},
 		},
 	)
 }
