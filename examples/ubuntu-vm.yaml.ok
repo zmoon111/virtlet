@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cirros-vm
+  annotations:
+    kubernetes.io/target-runtime: virtlet
+    scheduler.alpha.kubernetes.io/affinity: >
+      {
+        "nodeAffinity": {
+          "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "extraRuntime",
+                    "operator": "In",
+                    "values": ["virtlet"]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+spec:
+  containers:
+    - name: ubuntu-vm
+      image: virtlet/cloud-images.ubuntu.com/xenial/20170414.1/xenial-server-cloudimg-amd64-disk1.img
