@@ -143,13 +143,6 @@ func (s *TapFDSource) GetFD(key string, data []byte) (int, []byte, error) {
 
 	netConfig := payload.CNIConfig
 
-	// serialize the original config before modifying it
-	// (in case if dummyGateway is set)
-	respData, err := json.Marshal(netConfig)
-	if err != nil {
-		return 0, nil, fmt.Errorf("error marshalling net config: %v", err)
-	}
-
 	// Calico needs network config to be adjusted for DHCP compatibility
 	if s.dummyGateway != nil {
 		if len(netConfig.IPs) != 1 {
@@ -157,10 +150,6 @@ func (s *TapFDSource) GetFD(key string, data []byte) (int, []byte, error) {
 		}
 		if netConfig.IPs[0].Version != "4" {
 			return 0, nil, errors.New("IPv4 config was expected")
-		}
-		netConfig.IPs[0].Address.Mask, err = calcNetmaskForCalico(netConfig.IPs[0].Address.IP, s.dummyGateway)
-		if err != nil {
-			return 0, nil, err
 		}
 		netConfig.IPs[0].Gateway = s.dummyGateway
 		netConfig.Routes = []*cnitypes.Route{
@@ -196,8 +185,10 @@ func (s *TapFDSource) GetFD(key string, data []byte) (int, []byte, error) {
 
 		// NOTE: older CNI plugins don't include the hardware address
 		// in Result, but it's needed for Cloud-Init based
-		// network setup, so we add it here if it's missing
-		ensureCNIInterfaceHwAddress(netConfig, csn)
+		// network setup, so we add it here if it's missing.
+		// Also, some of the plugins may skip adding routes
+		// to the CNI result, so we must add them, too
+		fixCNIResult(netConfig, csn)
 
 		// TODO: now CNIConfig should always contain interface mac address, so there
 		// is no reason to pass it as separate field in dhcp.Config,
@@ -227,6 +218,11 @@ func (s *TapFDSource) GetFD(key string, data []byte) (int, []byte, error) {
 		return nil
 	}); err != nil {
 		return 0, nil, err
+	}
+
+	respData, err := json.Marshal(netConfig)
+	if err != nil {
+		return 0, nil, fmt.Errorf("error marshalling net config: %v", err)
 	}
 
 	s.fdMap[key] = &podNetwork{
@@ -286,7 +282,7 @@ func (s *TapFDSource) GetInfo(key string) ([]byte, error) {
 	return pn.csn.HardwareAddr, nil
 }
 
-func ensureCNIInterfaceHwAddress(netConfig *cnicurrent.Result, csn *nettools.ContainerSideNetwork) {
+func fixCNIResult(netConfig *cnicurrent.Result, csn *nettools.ContainerSideNetwork) {
 	// If there's no interface info in netConfig, we can assume that we're dealing
 	// with an old-style CNI plugin which only supports a single network interface
 	if len(netConfig.Interfaces) > 0 {
@@ -301,6 +297,10 @@ func ensureCNIInterfaceHwAddress(netConfig *cnicurrent.Result, csn *nettools.Con
 
 	for _, IP := range netConfig.IPs {
 		IP.Interface = 0
+	}
+
+	if len(netConfig.Routes) == 0 {
+		netConfig.Routes = csn.Result.Routes
 	}
 }
 
